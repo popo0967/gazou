@@ -428,3 +428,104 @@ plt.imshow(cv2.cvtColor(dst_img, cv2.COLOR_BGR2RGB))
 plt.title("Perspective Transformed Image")
 plt.show()
 ```
+
+
+---
+
+## 3. フィルタリングと高度な前処理
+
+### 3.1 平滑化・ぼかし処理 (Smoothing / Blurring)
+**用語:**
+画像内の細かなノイズ（ざらつき）を減らしたり、細部をあえて潰して大きな構造だけを残したりする処理です。二値化やエッジ検出を行う前に適用することで、誤検出を大幅に防ぐことができます。
+*   **ガウシアンフィルタ (Gaussian Blur):** 中心に近いピクセルほど重みを大きくする自然なぼかしです。
+*   **メディアンフィルタ (Median Blur):** 周囲のピクセルの中央値（メディアン）を採用します。ごま塩ノイズ（突発的な白黒の点）の除去に非常に強力です。
+
+**数式 (ガウシアンフィルタの重み):**
+二次元ガウス関数を用いて、各ピクセルに対する重みを計算します（$\sigma$ は標準偏差）。
+
+$$G(x, y) = \frac{1}{2\pi\sigma^2} \exp\left(-\frac{x^2 + y^2}{2\sigma^2}\right)$$
+
+**Pythonコード:**
+```python
+import cv2
+
+# 1. ガウシアンフィルタ (カーネルサイズは奇数で指定。ここでは 5x5)
+img_gaussian = cv2.GaussianBlur(img_bgr, (5, 5), 0)
+
+# 2. メディアンフィルタ (カーネルサイズを指定。ここでは 5)
+img_median = cv2.medianBlur(img_bgr, 5)
+```
+
+### 3.2 エッジ検出 (Edge Detection)
+**用語:**
+画像の中で明るさ（輝度値）が急激に変化している境界線（エッジ）を見つけ出す処理です。物体の形状や輪郭といった「特徴」だけを抽出したい場合に用います。最も代表的なのが**Canny（キャニー）法**です。
+
+**数式 (勾配の計算概念):**
+エッジ検出の内部では、X方向とY方向の輝度の微分（勾配）$G_x, G_y$ を計算し、その大きさと方向を求めます。
+
+$$|G| = \sqrt{G_x^2 + G_y^2}$$
+
+**Pythonコード:**
+```python
+import cv2
+
+# エッジ検出は通常グレースケール画像に対して行う
+img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+# Canny法によるエッジ検出 (最小閾値と最大閾値を指定)
+# ピクセルの勾配がmaxVal以上なら確実なエッジ、minVal以下ならエッジではないと判定
+img_canny = cv2.Canny(img_gray, 100, 200)
+```
+
+### 3.3 モルフォロジー変換 (Morphological Transformations)
+**用語:**
+主に二値化画像に対して、形状を整形するための処理です。マスク処理の際に見られる「小さな穴あき」や「ノイズの斑点」を修復するために使います。
+*   **Erosion (収縮):** 白い領域を削って細くします。小さな白点ノイズを消すのに有効です。
+*   **Dilation (膨張):** 白い領域を太くします。かすれた線を繋いだり、Erosionで小さくなった領域を元に戻すのに使います。
+*   **Opening / Closing:** 収縮と膨張を組み合わせた処理です（Closingは膨張→収縮の順に行い、領域内の黒い穴を埋めます）。
+
+**Pythonコード:**
+```python
+import cv2
+import numpy as np
+
+# 操作の単位となるカーネル（構造要素）を定義 (ここでは 5x5 のすべて1の行列)
+kernel = np.ones((5,5), np.uint8)
+
+# 1. 収縮 (Erosion)
+img_erosion = cv2.erode(img_bin, kernel, iterations=1)
+
+# 2. 膨張 (Dilation)
+img_dilation = cv2.dilate(img_bin, kernel, iterations=1)
+
+# 3. オープニング (ノイズ除去) / クロージング (穴埋め)
+img_opening = cv2.morphologyEx(img_bin, cv2.MORPH_OPEN, kernel)
+img_closing = cv2.morphologyEx(img_bin, cv2.MORPH_CLOSE, kernel)
+```
+
+### 3.4 正規化と標準化 (Normalization & Standardization)
+**用語:**
+画像データを機械学習やディープラーニングのモデル（ニューラルネットワークなど）に入力する際、計算の安定化と学習速度の向上のために必須となる前処理です。
+*   **正規化:** 画像の画素値（通常 0〜255）を `0.0 〜 1.0` などの範囲にスケール変換します。
+*   **標準化:** 画像全体の画素値の平均を `0`、分散（標準偏差）を `1` になるように変換します。
+
+**数式:**
+画素値を $x$ としたとき、
+
+*   Min-Max正規化: $$x' = \frac{x - \min(x)}{\max(x) - \min(x)}$$ (画像の場合は単純に255で割ることが多い)
+*   標準化（Z-score正規化）: $$x' = \frac{x - \mu}{\sigma}$$ （$\mu$は平均、$\sigma$は標準偏差）
+
+**Pythonコード:**
+```python
+import numpy as np
+
+# 1. シンプルな正規化 (0.0 〜 1.0の範囲にスケーリング)
+# float型に変換してから255で割る
+img_normalized = img_bgr.astype(np.float32) / 255.0
+
+# 2. 標準化 (平均0、標準偏差1にスケーリング)
+mean = np.mean(img_bgr)
+std = np.std(img_bgr)
+# ゼロ除算を防ぐために分母に微小な値(1e-8)を足すのが一般的
+img_standardized = (img_bgr - mean) / (std + 1e-8)
+```
