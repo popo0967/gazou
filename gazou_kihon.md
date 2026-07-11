@@ -320,7 +320,9 @@ plt.show()
 
 **数式:**
 変換前の座標を $(x, y)$、変換後の座標を $(x', y')$ とします。アフィン変換は、$2 \times 3$ の変換行列 $M$ を用いて、同次座標系との行列の積として以下のように表されます。
+
 $$ \begin{pmatrix} x' \\ y' \end{pmatrix} = M \begin{pmatrix} x \\ y \\ 1 \end{pmatrix} = \begin{pmatrix} m_{11} & m_{12} & m_{13} \\ m_{21} & m_{22} & m_{23} \end{pmatrix} \begin{pmatrix} x \\ y \\ 1 \end{pmatrix} = \begin{pmatrix} m_{11}x + m_{12}y + m_{13} \\ m_{21}x + m_{22}y + m_{23} \end{pmatrix} $$
+
 （※ $m_{13}, m_{23}$ は平行移動の成分を表します）
 
 **Pythonコード:**
