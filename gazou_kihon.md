@@ -249,3 +249,66 @@ th_adapt = cv2.adaptiveThreshold(
     2
 )
 ```
+
+### 2.7 輪郭抽出と外接矩形の描画 (Contour Extraction & Bounding Box)
+**用語:**
+画像内の同じ色や明るさを持つ連続したピクセルの境界線を繋ぎ合わせる処理を「輪郭抽出」と呼びます。主に物体の形状認識、個数のカウント、サイズ計測などに利用されます。
+*   **findContours:** 二値化画像から輪郭の座標データを抽出します。
+*   **contourArea:** 抽出した輪郭に囲まれた領域の面積（ピクセル数）を計算します。微小なノイズを除去するフィルタリングによく使われます。
+*   **boundingRect:** 抽出した輪郭をぴったり囲む、傾きのない長方形（外接矩形）の座標とサイズを計算します。
+
+**アルゴリズム（処理の流れ）:**
+1.  **前処理:** 画像をグレースケール化し、`cv2.threshold` で二値化することで、背景と物体（輪郭を抽出したい対象）を明確に分離します。
+2.  **輪郭の検出:** `cv2.findContours` を用いて境界の座標群を取得します。
+    *   `cv2.RETR_TREE`: 輪郭の中に別の輪郭がある場合（ドーナツ状の物体など）の親子関係（階層構造）をすべて保持するモードです。
+    *   `cv2.CHAIN_APPROX_SIMPLE`: 直線上の連続する座標を省略し、端点のみを保持することでメモリを節約する近似手法です（例：四角形なら4つの頂点のみを保持）。
+3.  **面積によるノイズ除去:** 検出されたすべての輪郭のうち、`cv2.contourArea` で計算した面積が1000ピクセル以下のものを、小さなゴミ（ノイズ）とみなしてリストから除外します。
+4.  **外接矩形の計算と描画:** 残った有効な輪郭ごとに `cv2.boundingRect` を適用し、囲み枠の左上座標 $(x, y)$ と幅 $w$、高さ $h$ を取得して、元の画像に四角形（`cv2.rectangle`）を描画します。
+
+**数式 (外接矩形の計算概念):**
+ある輪郭を構成する点の集合を $C = \{(x_i, y_i)\}$ としたとき、外接矩形の左上座標 $(x, y)$、幅 $w$、高さ $h$ は次のように求められます。
+$$x = \min_i (x_i), \quad y = \min_i (y_i)$$
+$$w = \max_i (x_i) - x, \quad h = \max_i (y_i) - y$$
+
+**Pythonコード:**
+```python
+import cv2
+import matplotlib.pyplot as plt
+
+img_bgr = cv2.imread('bolts.jpg')
+img_bgr = cv2.resize(img_bgr, (500, 375))
+
+# グレイスケールに変換する
+img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+# 二値化(findContoursに渡すために必要です)
+ret,img_bin = cv2.threshold(img_gray, 150, 255, cv2.THRESH_BINARY)
+
+# 輪郭を抽出する
+# contoursには個々の輪郭の形状(座標のリスト)が、
+# hierarchyには輪郭の階層情報(親子関係)が入ります
+contours, hierarchy = cv2.findContours(img_bin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+# ノイズを取り除くために面積が一定以上の領域のみを残し残りを削除する
+contours = list(filter(lambda x:cv2.contourArea(x) > 1000, contours))
+
+# 領域の描画
+result_img = cv2.drawContours(img_bgr.copy(), contours, -1, (0, 255, 0), 5)
+
+# 個々の領域を囲む四角形(外接する矩形)を描画する
+for c in contours:
+    x,y,w,h = cv2.boundingRect(c)
+    result_img = cv2.rectangle(result_img, (x,y), (x+w,y+h), (255, 0, 0), 4)
+
+titles = ['Input Image', 'Grayscale', 'cv2.threshold', 'Result']
+images = [img_bgr, img_gray, img_bin, result_img]
+
+fig = plt.figure(figsize=(24,6))
+
+for index, (title, img) in enumerate(zip(titles, images)):
+    ax = fig.add_subplot(1,len(images),index+1)
+    ax.title.set_text(title)
+    ax.imshow(img, 'gray')
+    ax.axis('off')
+plt.show()
+```
