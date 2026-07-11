@@ -351,6 +351,8 @@ img_rotated = cv2.warpAffine(img_bgr, M_rotate, (w, h))
 *   **バイリニア補間 (Bilinear):** 周囲の4つのピクセルから、距離に応じた重み付け加重平均を計算します。処理速度と画質のバランスが良く、OpenCVの標準（デフォルト）手法です。
 *   **バイキュービック補間 (Bicubic):** 周囲の16つのピクセルを使用し、3次関数を用いて滑らかに計算します。バイリニアよりも計算コストは高いですが、より高品質でシャープな結果が得られます。
 
+また、INTER_Areaと呼ばれる(モアレ対策もある)
+
 **数式 (最近傍とバイリニアの概念):**
 変換先の座標 $(x, y)$（小数値を含む）に対する画素値 $f(x, y)$ の決定方法：
 *   **最近傍補間:** 最も近い整数座標へ丸める。
@@ -375,4 +377,52 @@ img_bilinear = cv2.resize(img_bgr, new_size, interpolation=cv2.INTER_LINEAR)
 
 # 3. バイキュービック補間 (INTER_CUBIC) - 処理は重いが滑らかで高画質
 img_bicubic = cv2.resize(img_bgr, new_size, interpolation=cv2.INTER_CUBIC)
+```
+
+
+### 2.10 射影変換 (Perspective Transformation)
+**用語:**
+アフィン変換が「平行な線を平行なまま」変換するのに対し、射影変換（透視投影変換、ホモグラフィ変換とも呼ばれます）は「直線は直線のまま」ですが**「平行は保たれない」**変換です。
+斜めから撮影したポスターや名刺を真正面から見たように補正したり、車載カメラ（ドライブレコーダー）の映像を真上から見下ろしたような「俯瞰画像（Bird's-eye view）」に変換したりする際によく用いられます。変換行列を計算するためには、変換前と変換後の**「4点の対応する座標」**が必要になります。
+
+**数式:**
+変換前の座標を $(x, y)$、変換後の座標を $(x', y')$ とします。射影変換は $3 \times 3$ の変換行列 $M$ と同次座標系を用いて、以下のように表されます。
+$$ \begin{pmatrix} x'w \\ y'w \\ w \end{pmatrix} = \begin{pmatrix} m_{11} & m_{12} & m_{13} \\ m_{21} & m_{22} & m_{23} \\ m_{31} & m_{32} & m_{33} \end{pmatrix} \begin{pmatrix} x \\ y \\ 1 \end{pmatrix} $$
+ここで計算された要素から、最終的な変換後の座標はそれぞれ $x' = \frac{x'w}{w}, \quad y' = \frac{y'w}{w}$ として求められます。
+
+**Pythonコード:**
+```python
+import cv2
+import numpy as np
+from matplotlib import pyplot as plt
+
+img = cv2.imread('drivecam.jpg')
+
+# 変換前の4点の座標 (対象物の左上、右上、左下、右下などの対応する4点)
+src_pts = np.array([(670, 680), (1130, 680), (130, 800), (1600, 800)], dtype=np.float32)
+
+# 変換後の4点の座標 (ここでは500x500の正方形の四隅に割り当てて、真っ直ぐな矩形にする)
+dst_pts = np.array([(0, 0), (500, 0), (0, 500), (500, 500)], dtype=np.float32)
+
+# 4点の対応関係から、3x3の透視変換行列 M を計算する
+M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+
+# 計算した変換行列 M を用いて画像に射影変換（ワープ）を適用する
+dst_img = cv2.warpPerspective(img, M, (500, 500))
+
+# 確認のため、元画像の指定した4点にマーカー(赤い×印)を描画する
+cv2.drawMarker(img, (670, 680), (0,0,255), cv2.MARKER_TILTED_CROSS, markerSize=50, thickness=10)
+cv2.drawMarker(img, (1130, 680), (0,0,255), cv2.MARKER_TILTED_CROSS, markerSize=50, thickness=10)
+cv2.drawMarker(img, (130, 800), (0,0,255), cv2.MARKER_TILTED_CROSS, markerSize=50, thickness=10)
+cv2.drawMarker(img, (1600, 800), (0,0,255), cv2.MARKER_TILTED_CROSS, markerSize=50, thickness=10)
+
+# 元画像（マーカー付き）の表示
+plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+plt.title("Original Image with Markers")
+plt.show()
+
+# 射影変換後（俯瞰）の画像の表示
+plt.imshow(cv2.cvtColor(dst_img, cv2.COLOR_BGR2RGB))
+plt.title("Perspective Transformed Image")
+plt.show()
 ```
