@@ -94,3 +94,89 @@ img_h = cv2.hconcat([img1, img2])
 # vconcat: 縦方向に並べる
 img_v = cv2.vconcat([img1, img2])
 ```
+
+---
+
+## 2. 色空間の変換
+
+### 2.1 グレースケール変換 (Grayscale Conversion)
+**用語:**
+カラー画像（RGBやBGR）から色情報を取り除き、明るさ（輝度）の情報のみを持つ白黒画像に変換する処理です。データ量（情報量）が1/3に減るため計算コストが下がり、輪郭抽出や物体検出（顔認識など）の前処理として非常によく使われます。
+
+**数式:**
+RGB値から輝度（$Y$）を求める一般的な計算式（NTSC加重平均法）は以下のようになります。
+$$Y = 0.299 \times R + 0.587 \times G + 0.114 \times B$$
+
+**Pythonコード:**
+```python
+import cv2
+
+# BGR画像からグレースケール画像への変換
+img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+```
+
+### 2.2 HSV変換 (HSV Conversion)
+**用語:**
+RGB色空間を、人間の視覚・直感により近い表現に変換する処理です。照明の明るさが変化しても「色」を抽出しやすいため、特定の色をベースにしたマスク処理（特定の色だけを抜き出す処理）などで非常に重宝されます。
+*   **H (Hue - 色相):** 色の種類（赤、青、緑など）。OpenCVでは通常 `0〜179` の範囲で表現されます。
+*   **S (Saturation - 彩度):** 色の鮮やかさ。0に近いほどくすんだ色（グレーや白に近づく）になり、値が大きいほど純色になります（0〜255）。
+*   **V (Value - 明度):** 色の明るさ。0が真っ黒で、値が大きいほど明るくなります（0〜255）。
+
+**Pythonコード:**
+```python
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+
+img_bgr = cv2.imread('chocolates.jpg')
+img_hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+
+h, s, v = cv2.split(img_hsv)
+
+# 画像を大きめに表示する
+plt.figure(figsize=(15,10))
+
+# 2x3の領域に区切って合計6枚の画像をまとめて表示する
+plt.subplot(2,3,1)
+plt.title('Original (RGB)')
+plt.imshow(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+
+plt.subplot(2,3,2)
+plt.title('Hue (H)')
+plt.imshow(h, cmap='gray')
+
+plt.subplot(2,3,3)
+plt.title('Saturation (S)')
+plt.imshow(s, cmap='gray')
+
+plt.subplot(2,3,4)
+plt.title('Value, Brightness (V)')
+plt.imshow(v, cmap='gray')
+
+# マスク画像(抜き出す部分が1, それ以外が0の画像）を作ります
+# ここでは Hue が 80〜140かつ、Saturation が 70を超える部分を指定しています
+mask = np.zeros(h.shape, dtype=np.uint8)
+mask[(h > 80) & (h < 140) & (s > 70)] = 255
+
+# そのままではマスク画像に穴が開くので closing 処理をすると綺麗なマスクになります
+mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((41,41),np.uint8))
+
+# maskが1チャンネル, img_bgrが3チャンネルのためそのままでは AND が計算できません
+# そのため cvtColor() でmask側を3チャンネルに変換しています。
+mask_3ch = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
+
+# bitwise_and() で AND をとり、MASKが0の部分が真っ黒になっている画像を出力します
+result_img = cv2.bitwise_and(img_bgr, mask_3ch)
+
+# マスク画像を表示
+plt.subplot(2,3,5)
+plt.title('mask')
+plt.imshow(mask, cmap='gray')
+
+# 最終的な出力を表示
+plt.subplot(2,3,6)
+plt.title('result')
+plt.imshow(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB))
+
+plt.show()
+```
