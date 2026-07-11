@@ -529,3 +529,75 @@ std = np.std(img_bgr)
 # ゼロ除算を防ぐために分母に微小な値(1e-8)を足すのが一般的
 img_standardized = (img_bgr - mean) / (std + 1e-8)
 ```
+
+## 4. モデルの評価指標 (Confusion Matrix と各種スコア)
+
+### 4.1 混同行列 (Confusion Matrix) の基本用語
+**用語:**
+分類モデル（例：画像にキズがあるか無いかを判定するモデルなど）の予測結果と、実際の正解ラベルとの関係を4つのパターンに分類して表した表のことです。
+*   **TP (True Positive - 真陽性):** 正解が「陽性（Positive）」で、モデルも「陽性」と**正しく予測**できた件数。（例：キズ画像を「キズあり」と正解した）
+*   **TN (True Negative - 真陰性):** 正解が「陰性（Negative）」で、モデルも「陰性」と**正しく予測**できた件数。（例：正常画像を「キズなし」と正解した）
+*   **FP (False Positive - 偽陽性):** 正解は「陰性」なのに、モデルが誤って「陽性」と**過剰検知**してしまった件数。第一種過誤。（例：正常画像を「キズあり」と誤報した）
+*   **FN (False Negative - 偽陰性):** 正解は「陽性」なのに、モデルが誤って「陰性」と**見逃して**しまった件数。第二種過誤。（例：キズ画像を見逃して「キズなし」とした）
+
+### 4.2 代表的な評価指標 (Metrics)
+**用語:**
+上記の TP, TN, FP, FN を組み合わせて、モデルの性能を多角的に数値化します。タスクの目的（誤報を減らしたいのか、見逃しを減らしたいのか）に合わせて重視する指標を変えます。
+*   **Accuracy (正解率):** 全体のうち、正しく予測できた（TPとTN）割合。データに偏りがある（例：正常品が99%、不良品が1%）場合は高ぶれするため注意が必要。
+*   **Precision (適合率):** モデルが「陽性」と予測したもののうち、本当に「陽性」だった割合。**FP（誤報・過剰検知）を減らしたい場合**に重視する。
+*   **Recall (再現率):** 実際に「陽性」であるもののうち、モデルが「陽性」と見つけ出せた割合。**FN（見逃し）を絶対に防ぎたい場合**（医療診断や異常検知など）に重視する。
+*   **F1-score (F1値):** PrecisionとRecallの調和平均。両者はトレードオフの関係にあるため、総合的なバランスを見たい場合に使用する。
+
+**数式:**
+$$Accuracy = \frac{TP + TN}{TP + TN + FP + FN}$$
+
+$$Precision = \frac{TP}{TP + FP}$$
+
+$$Recall = \frac{TP}{TP + FN}$$
+
+$$F1 = \frac{2 \times Precision \times Recall}{Precision + Recall}$$
+
+**Pythonコード:**
+Pythonでは `scikit-learn` ライブラリの `metrics` モジュールを使うのが一般的です。
+
+```python
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, classification_report
+
+# 実際の正解ラベル (1:陽性/異常, 0:陰性/正常)
+y_true = [0, 1, 0, 0, 1, 1, 0, 1, 0, 0]
+
+# モデルの予測ラベル
+y_pred = [0, 1, 0, 1, 1, 0, 0, 1, 0, 0]
+
+# 1. 混同行列の算出 (TN, FP, FN, TPの順で展開される)
+cm = confusion_matrix(y_true, y_pred)
+tn, fp, fn, tp = cm.ravel()
+
+print(f"TP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}")
+
+# 2. 各種評価指標の算出
+accuracy = accuracy_score(y_true, y_pred)
+precision = precision_score(y_true, y_pred)
+recall = recall_score(y_true, y_pred)
+f1 = f1_score(y_true, y_pred)
+
+print(f"Accuracy : {accuracy:.2f}")
+print(f"Precision: {precision:.2f}")
+print(f"Recall   : {recall:.2f}")
+print(f"F1-score : {f1:.2f}")
+
+# 3. classification_reportによる一括出力
+print("\n--- Classification Report ---")
+print(classification_report(y_true, y_pred))
+
+# 4. 混同行列の可視化 (ヒートマップ)
+plt.figure(figsize=(6, 4))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+            xticklabels=['Predicted 0', 'Predicted 1'], 
+            yticklabels=['Actual 0', 'Actual 1'])
+plt.title('Confusion Matrix')
+plt.show()
+```
