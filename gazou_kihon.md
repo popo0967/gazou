@@ -312,3 +312,65 @@ for index, (title, img) in enumerate(zip(titles, images)):
     ax.axis('off')
 plt.show()
 ```
+
+
+### 2.8 アフィン変換 (Affine Transformation)
+**用語:**
+画像の「平行移動」「回転」「拡大縮小」「せん断（スキュー）」を組み合わせた幾何学的な変換処理です。アフィン変換の最大の特徴は、**「変換前において平行だった直線は、変換後も平行が保たれる」**という性質を持っていることです。
+
+**数式:**
+変換前の座標を $(x, y)$、変換後の座標を $(x', y')$ とします。アフィン変換は、$2 \times 3$ の変換行列 $M$ を用いて、同次座標系との行列の積として以下のように表されます。
+$$ \begin{pmatrix} x' \\ y' \end{pmatrix} = M \begin{pmatrix} x \\ y \\ 1 \end{pmatrix} = \begin{pmatrix} m_{11} & m_{12} & m_{13} \\ m_{21} & m_{22} & m_{23} \end{pmatrix} \begin{pmatrix} x \\ y \\ 1 \end{pmatrix} = \begin{pmatrix} m_{11}x + m_{12}y + m_{13} \\ m_{21}x + m_{22}y + m_{23} \end{pmatrix} $$
+（※ $m_{13}, m_{23}$ は平行移動の成分を表します）
+
+**Pythonコード:**
+```python
+import cv2
+import numpy as np
+
+# 画像サイズの取得
+h, w = img_bgr.shape[:2]
+
+# 1. 平行移動 (X方向に50, Y方向に20)
+M_translate = np.float32([[1, 0, 50], [0, 1, 20]])
+img_translated = cv2.warpAffine(img_bgr, M_translate, (w, h))
+
+# 2. 回転と拡大縮小 (画像中心を軸に45度回転、スケール0.8倍)
+center = (w // 2, h // 2)
+M_rotate = cv2.getRotationMatrix2D(center, 45, 0.8)
+img_rotated = cv2.warpAffine(img_bgr, M_rotate, (w, h))
+```
+
+### 2.9 画像の補間手法 (Interpolation Methods)
+**用語:**
+画像の拡大縮小や回転（アフィン変換など）を行った際、変換先の座標が整数にならない場合や、新しくピクセルを生成する必要がある場合に、**周囲のピクセルの値から新しいピクセルの色（画素値）を計算して推定する処理**を補間（Interpolation）と呼びます。
+
+*   **最近傍補間 (Nearest Neighbor):** 最も近い位置にあるピクセルの値をそのまま採用します。計算速度は最速ですが、輪郭にギザギザ（ジャギー）が発生しやすく、ドット絵の拡大などに使われます。
+*   **バイリニア補間 (Bilinear):** 周囲の4つのピクセルから、距離に応じた重み付け加重平均を計算します。処理速度と画質のバランスが良く、OpenCVの標準（デフォルト）手法です。
+*   **バイキュービック補間 (Bicubic):** 周囲の16つのピクセルを使用し、3次関数を用いて滑らかに計算します。バイリニアよりも計算コストは高いですが、より高品質でシャープな結果が得られます。
+
+**数式 (最近傍とバイリニアの概念):**
+変換先の座標 $(x, y)$（小数値を含む）に対する画素値 $f(x, y)$ の決定方法：
+*   **最近傍補間:** 最も近い整数座標へ丸める。
+    $$f(x, y) = I(\text{round}(x), \text{round}(y))$$
+*   **バイリニア補間:** 周囲4点 $(x_1, y_1), (x_2, y_1), (x_1, y_2), (x_2, y_2)$ を用いて、距離（割合）で線形に重み付け（加重平均）する。
+
+**Pythonコード:**
+```python
+import cv2
+
+# 元画像のサイズ
+h, w = img_bgr.shape[:2]
+
+# 2倍に拡大するサイズ
+new_size = (w * 2, h * 2)
+
+# 1. 最近傍補間 (INTER_NEAREST) - 処理は早いがギザギザになる
+img_nearest = cv2.resize(img_bgr, new_size, interpolation=cv2.INTER_NEAREST)
+
+# 2. バイリニア補間 (INTER_LINEAR) - デフォルト。バランスが良い
+img_bilinear = cv2.resize(img_bgr, new_size, interpolation=cv2.INTER_LINEAR)
+
+# 3. バイキュービック補間 (INTER_CUBIC) - 処理は重いが滑らかで高画質
+img_bicubic = cv2.resize(img_bgr, new_size, interpolation=cv2.INTER_CUBIC)
+```
