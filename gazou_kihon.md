@@ -387,7 +387,9 @@ img_bicubic = cv2.resize(img_bgr, new_size, interpolation=cv2.INTER_CUBIC)
 
 **数式:**
 変換前の座標を $(x, y)$、変換後の座標を $(x', y')$ とします。射影変換は $3 \times 3$ の変換行列 $M$ と同次座標系を用いて、以下のように表されます。
+
 $$ \begin{pmatrix} x'w \\ y'w \\ w \end{pmatrix} = \begin{pmatrix} m_{11} & m_{12} & m_{13} \\ m_{21} & m_{22} & m_{23} \\ m_{31} & m_{32} & m_{33} \end{pmatrix} \begin{pmatrix} x \\ y \\ 1 \end{pmatrix} $$
+
 ここで計算された要素から、最終的な変換後の座標はそれぞれ $x' = \frac{x'w}{w}, \quad y' = \frac{y'w}{w}$ として求められます。
 
 **Pythonコード:**
